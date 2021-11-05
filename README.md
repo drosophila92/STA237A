@@ -1,5 +1,4 @@
-# STA237A
-STA237A final project
+# STA237A final project
 
 In this project, we are planning to look at the effect of government policy responses, and in particular, vaccination policy on the spread of Covid, which is measured by # of new cases per-capita across a few selected countries. To examing the (partial) effect of vaccination policy on reducing the Covid growth while controlling the potential effects from other government actions (face covering, travel restrictions etc.), we plan to build ARIMAX models (a.k.a. time series regression models with covariates).
 
