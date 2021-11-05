@@ -9,5 +9,5 @@ Beyond drawing statistical associations between vaccination policy and covid inf
 Data source: [Our World in Data](https://ourworldindata.org/), where the dynamic of Covid growth worldwide and government policy responses to Covid are well curated. 
 
 # Referece
-+ Hossain MS, Ahmed S, Uddin MJ. Impact of weather on COVID-19 transmission in south Asian countries: An application of the ARIMAX model. Sci Total Environ. 2021 Mar 20;761:143315. doi: 10.1016/j.scitotenv.2020.143315. Epub 2020 Nov 2. PMID: 33162141; PMCID: PMC7605795.
++ Hossain MS, Ahmed S, Uddin MJ. Impact of weather on COVID-19 transmission in south Asian countries: An application of the ARIMAX model. Sci Total Environ. 2021 Mar 20;761:143315. doi: 10.1016/j.scitotenv.2020.143315. Epub 2020 Nov 2. PMID: 33162141; PMCID: PMC7605795. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7605795
 + Edward E. Time series models with covariates, and a case study of polio. 2016 April 14. https://ionides.github.io/531w16/notes18/notes18.html
