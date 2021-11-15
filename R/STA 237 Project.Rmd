@@ -1,0 +1,150 @@
+---
+title: "STA 237"
+author: "Yutian Yang"
+date: "11/11/2021"
+output: html_document
+---
+
+```{r}
+infection <- read.csv("C:/Users/charl/Downloads/owid-covid-data.csv")
+vaccination <- read.csv("C:/Users/charl/Downloads/covid-vaccination-policy.csv")
+
+library(tidyverse)
+```
+
+```{r}
+colnames(infection)[1] = c("Code")
+colnames(infection)[4] = c("Day")
+
+covid <-
+infection %>%
+  right_join(vaccination,by = c("Code","Day"))
+```
+
+```{r}
+covid_north <-
+  covid %>% 
+  filter(continent %in% c("Asia","Europe","North America","Africa"))
+```
+```{r}
+covid_north$Day = as.Date(covid_north$Day)
+
+no_vaccination <-
+covid_north %>%
+  select(location,Day,vaccination_policy) %>%
+  group_by(location) %>%
+  filter(Day > "2021-3-1") %>%
+  filter(vaccination_policy == 0) %>%
+  distinct(location)
+
+covid_north <-
+  covid_north %>%
+  filter(!(location %in% no_vaccination$location))
+
+covid_north <-
+  covid_north %>%
+  filter(total_tests_per_thousand >= 10) %>%
+  filter(total_vaccinations > 0)
+  
+
+```
+
+```{r}
+covid_north %>%
+  #select()
+  group_by(location) %>%
+  count(NA) %>%
+  arrange(desc(n))
+
+NA_list = c("Latvia","Slovenia","Liechtenstein","Estonia","Lithuania","Slovakia","Malta","Saudi Arabia","Sri Lanka","Guatemala","Bahrain")
+
+covid_north <-
+  covid_north %>%
+  filter(!(location %in% NA_list))
+```
+
+```{r}
+#filtering out usa data with selected variables
+covid_usa <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "United States")
+```
+
+```{r}
+library(forecast)
+
+ts_covid_usa = ts(covid_usa$new_cases_per_million)
+
+ts_covid_usa_train = ts_covid_usa[1:290]
+ts_covid_usa_test = ts_covid_usa[291:320]
+plot.ts(ts_covid_usa)
+```
+
+```{r}
+#detrend
+ts_covid_usa_train %>% diff() %>% ggtsdisplay(main="")
+
+#ARIMA
+fit = auto.arima(ts_covid_usa_train)
+summary(fit)
+
+checkresiduals(fit)
+```
+```{r}
+#Forecast
+autoplot(forecast(fit, h=30))
+autoplot(ts_covid_usa)
+
+autoplot(fit)
+
+# https://otexts.com/fpp2/arima-r.html
+```
+```{r}
+#ARIMAX method 1
+
+regression_model = lm(new_cases_per_million~as.factor(vaccination_policy), data = covid_usa[1:290,]) 
+error = residuals(regression_model)
+ts_error = ts(error)
+
+plot.ts(ts_error)
+
+
+ts_error %>% diff() %>% ggtsdisplay(main="")
+
+#ARIMA on error
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+
+# combine with regression model
+
+# final_model = regression_model + error_model
+
+regression_prediction = predict(regression_model, newdata = covid_usa[291:320,])
+error_forecast =  predict(error_model, n.ahead = 30)
+
+final_model_prediction = regression_prediction + error_forecast$pred
+
+compare_table = data.frame( final_model_prediction,covid_usa$new_cases_per_million[291:320])
+colnames(compare_table) = c("predict","actual")
+compare_table
+```
+
+```{r}
+#ARIMAX method 2
+
+library(TSA)
+
+method_2 = arimax(ts_covid_usa[1:290],order = c(4,1,2),xreg = covid_usa$vaccination_policy[1:290])
+
+final_model_prediction_2 = predict(method_2, n.ahead = 30,newxreg = covid_usa$vaccination_policy[291:320])
+
+compare_table_2 = data.frame( final_model_prediction_2$pred,covid_usa$new_cases_per_million[291:320])
+colnames(compare_table_2) = c("predict","actual")
+compare_table_2
+```
+
+
+
