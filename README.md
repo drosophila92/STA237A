@@ -12,5 +12,3 @@ To keep track of our latest project progress, check the [project report](https:/
 + Hossain, Md. S., Ahmed, S., & Uddin, Md. J. (2021). Impact of weather on COVID-19 transmission in south Asian countries: An application of the ARIMAX model. The Science of the Total Environment, 761, 143315. https://doi.org/10.1016/j.scitotenv.2020.143315
 + Edward E. Time series models with covariates, and a case study of polio. 2016 April 14. Retrieved November 6, 2021, from https://ionides.github.io/531w16/notes18/notes18.html
 + Hyndman, R. J. (2010, October 4). The ARIMAX model muddle | R-bloggers. Retrieved November 6, 2021, from https://www.r-bloggers.com/2010/10/the-arimax-model-muddle
-
-Main text for project report for collaboration and review:
