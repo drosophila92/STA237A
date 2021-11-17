@@ -74,62 +74,187 @@ covid_usa <-
 ```{r}
 library(forecast)
 
-ts_covid_usa = ts(covid_usa$new_cases_per_million)
+ts_covid_usa = ts(covid_usa$new_cases_per_million,frequency = 7)
+
 
 ts_covid_usa_train = ts_covid_usa[1:290]
 ts_covid_usa_test = ts_covid_usa[291:320]
-plot.ts(ts_covid_usa)
+plot(covid_usa$Day,                              # Draw first time series
+     ts_covid_usa,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd usa")
 ```
 
 ```{r}
-#detrend
-ts_covid_usa_train %>% diff() %>% ggtsdisplay(main="")
+#detrend & deseasonal (not recommend)
+# model: Xt = Mt + St + Zt
+
+trend = decompose(ts_covid_usa)$trend
+seasonal = decompose(ts_covid_usa)$seasonal
+
+ts_covid_usa_station = ts_covid_usa - trend - seasonal
+ts_covid_usa_station_train = ts_covid_usa_station[1:290]
+ts_covid_usa_station_test = ts_covid_usa_station[291:320]
+
+plot(covid_usa$Day,                              # Draw first time series
+     ts_covid_usa_station,
+     type = "l",
+     xlab = "Date",
+     ylab = "detrend(new cases per million)",
+     main = "ts coivd usa")
 
 #ARIMA
-fit = auto.arima(ts_covid_usa_train)
+fit = auto.arima(ts_covid_usa_station_train)
+
 summary(fit)
 
 checkresiduals(fit)
 ```
 ```{r}
 #Forecast
-autoplot(forecast(fit, h=30))
-autoplot(ts_covid_usa)
+prediction = predict(fit,n.ahead = 30)$pred
+
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     ts_covid_usa_station[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      prediction,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
 
 autoplot(fit)
+#This means the model is causal and invertible
 
 # https://otexts.com/fpp2/arima-r.html
 ```
+
+```{r}
+#Detrend 2
+# model: (1-B^7)Yt
+
+detrend_ts_covid_usa_train = ts_covid_usa_train %>% diff(7)
+ts_covid_usa_train %>% diff(7) %>% ggtsdisplay(main="")
+
+
+#how to restore diff back to original value (easier for interpretation)
+#restore = c()
+#restore[1:7] = ts_covid_usa_train[1:7]
+#for (i in 8:length(ts_covid_usa_train)) {
+#  restore[i] = ts_covid_usa_train[i-7] + detrend_ts_covid_usa_train[i-7]
+#  
+#}
+
+
+
+#ARIMA
+fit = auto.arima(detrend_ts_covid_usa_train)
+summary(fit)
+
+checkresiduals(fit)
+```
+```{r}
+#Forecast
+prediction = predict(fit,n.ahead = 30)$pred
+restore = c()
+restore[1:7] = ts_covid_usa_train[284:290] + prediction[1:7]
+for (i in 8:30) {
+  restore[i] = restore[i-7] + prediction[i]
+  
+}
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     covid_usa$new_cases_per_million[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      restore,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+autoplot(fit)
+#This means the model is causal and invertible
+
+# https://otexts.com/fpp2/arima-r.html
+```
+
+
 ```{r}
 #ARIMAX method 1
 
 regression_model = lm(new_cases_per_million~as.factor(vaccination_policy), data = covid_usa[1:290,]) 
+summary(regression_model)
+
 error = residuals(regression_model)
 ts_error = ts(error)
 
-plot.ts(ts_error)
+plot(covid_usa$Day[1:290],                              # Draw first time series
+     ts_error,
+     type = "l",
+     xlab = "Date",
+     ylab = "residuals",
+     main = "ts coivd usa")
 
 
-ts_error %>% diff() %>% ggtsdisplay(main="")
+detrend_ts_error = ts_error %>% diff(7)
+ts_error %>% diff(7) %>% ggtsdisplay(main="")
 
 #ARIMA on error
-error_model = auto.arima(ts_error)
+error_model = auto.arima(detrend_ts_error)
 summary(error_model)
 
 checkresiduals(error_model)
+```
 
+
+```{r}
 # combine with regression model
 
 # final_model = regression_model + error_model
 
 regression_prediction = predict(regression_model, newdata = covid_usa[291:320,])
-error_forecast =  predict(error_model, n.ahead = 30)
+error_diff_forecast =  predict(error_model, n.ahead = 30)$pred
 
-final_model_prediction = regression_prediction + error_forecast$pred
+restore_error_forecast = c()
+restore_error_forecast[1:7] = ts_error[284:290] + error_diff_forecast[1:7]
+for (i in 8:30) {
+  restore_error_forecast[i] = restore_error_forecast[i-7] + error_diff_forecast[i]
+  
+}
+
+
+
+
+final_model_prediction = regression_prediction + restore_error_forecast
 
 compare_table = data.frame( final_model_prediction,covid_usa$new_cases_per_million[291:320])
 colnames(compare_table) = c("predict","actual")
-compare_table
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     covid_usa$new_cases_per_million[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      final_model_prediction,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+head(compare_table)
 ```
 
 ```{r}
@@ -137,13 +262,28 @@ compare_table
 
 library(TSA)
 
-method_2 = arimax(ts_covid_usa[1:290],order = c(4,1,2),xreg = covid_usa$vaccination_policy[1:290])
+method_2 = arimax(ts_covid_usa[1:290],order = c(3,0,5),xreg = covid_usa$vaccination_policy[1:290])
 
 final_model_prediction_2 = predict(method_2, n.ahead = 30,newxreg = covid_usa$vaccination_policy[291:320])
 
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     covid_usa$new_cases_per_million[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      final_model_prediction_2$pred,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
 compare_table_2 = data.frame( final_model_prediction_2$pred,covid_usa$new_cases_per_million[291:320])
 colnames(compare_table_2) = c("predict","actual")
-compare_table_2
+head(compare_table_2)
 ```
 
 
