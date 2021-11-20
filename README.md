@@ -16,3 +16,7 @@ To keep track of our latest project progress, check the [project report](https:/
 + Hossain, Md. S., Ahmed, S., & Uddin, Md. J. (2021). Impact of weather on COVID-19 transmission in south Asian countries: An application of the ARIMAX model. The Science of the Total Environment, 761, 143315. https://doi.org/10.1016/j.scitotenv.2020.143315
 + Edward E. Time series models with covariates, and a case study of polio. 2016 April 14. Retrieved November 6, 2021, from https://ionides.github.io/531w16/notes18/notes18.html
 + Hyndman, R. J. (2010, October 4). The ARIMAX model muddle | R-bloggers. Retrieved November 6, 2021, from https://www.r-bloggers.com/2010/10/the-arimax-model-muddle
++ Garziano, G. (2017, October 7). ARIMA models and Intervention Analysis | DataScience+. Retrieved November 20, 2021, from https://datascienceplus.com/arima-models-and-intervention-analysis/
++ Garziano, G. (2017, December 4). Outliers Detection and Intervention Analysis | R-bloggers. https://www.r-bloggers.com/2017/12/outliers-detection-and-intervention-analysis/
++ 9.2 Intervention Analysis. (n.d.). Retrieved November 20, 2021, from https://online.stat.psu.edu/stat510/book/export/html/692
+
