@@ -1,0 +1,1401 @@
+---
+title: "STA 237 Final Project"
+author: "Yutian Yang"
+date: "11/20/2021"
+output: html_document
+---
+
+```{r}
+infection <- read.csv("C:/Users/charl/Downloads/owid-covid-data.csv")
+vaccination <- read.csv("C:/Users/charl/Downloads/covid-vaccination-policy.csv")
+
+library(tidyverse)
+```
+
+```{r}
+colnames(infection)[1] = c("Code")
+colnames(infection)[4] = c("Day")
+
+covid <-
+infection %>%
+  right_join(vaccination,by = c("Code","Day"))
+```
+
+```{r}
+covid_north <-
+  covid %>% 
+  filter(continent %in% c("Asia","Europe","North America","Africa"))
+```
+
+```{r}
+covid_north$Day = as.Date(covid_north$Day)
+
+no_vaccination <-
+covid_north %>%
+  select(location,Day,vaccination_policy) %>%
+  group_by(location) %>%
+  filter(Day > "2021-3-1") %>%
+  filter(vaccination_policy == 0) %>%
+  distinct(location)
+
+covid_north <-
+  covid_north %>%
+  filter(!(location %in% no_vaccination$location))
+
+covid_north <-
+  covid_north %>%
+  filter(total_tests_per_thousand >= 10) %>%
+  filter(total_vaccinations > 0)
+  
+
+```
+
+```{r}
+covid_north %>%
+  #select()
+  group_by(location) %>%
+  count(NA) %>%
+  arrange(desc(n))
+
+NA_list = c("Latvia","Slovenia","Liechtenstein","Estonia","Lithuania","Slovakia","Malta","Saudi Arabia","Sri Lanka","Guatemala","Bahrain")
+
+covid_north <-
+  covid_north %>%
+  filter(!(location %in% NA_list))
+```
+
+```{r}
+#filtering out usa data with selected variables
+covid_usa <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "United States")
+```
+
+```{r}
+library(forecast)
+
+ts_covid_usa = ts(covid_usa$new_cases_per_million,frequency = 7)
+
+plot(covid_usa$Day,                             
+     ts_covid_usa,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd usa")
+```
+
+
+
+
+
+```{r}
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_usa)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_usa <-
+  covid_usa %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_usa$error_tests_rate[8:320] = error_tests_rate %>% diff(7)
+plot.ts(new_covid_usa$error_tests_rate)
+```
+
+
+```{r}
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(error_tests_rate~1, data = new_covid_usa[8:290,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+```
+
+
+```{r}
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_usa[291:320,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$error_tests_rate[8:320])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_usa$Day[8:320],                              # Draw first time series
+     new_covid_usa$error_tests_rate[8:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[8:320],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     new_covid_usa$error_tests_rate[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+
+```{r}
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_usa[8:290,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d = 1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+```
+
+
+```{r}
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_usa[291:320,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$error_tests_rate[8:320])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_usa$Day[8:320],                              # Draw first time series
+     new_covid_usa$error_tests_rate[8:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[8:320],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     new_covid_usa$error_tests_rate[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+
+```{r}
+#ARIMAX method 2
+
+library(TSA)
+
+AIC = c()
+for (p in 1:5) {
+  for (d in 1:3) {
+    for (q in 1:5) {
+      method_2 = arimax(new_covid_usa$error_tests_rate[1:290],order = c(p,d,q),xreg = new_covid_usa$vaccination_policy[1:290])
+      AIC = append(AIC,c(method_2$aic,c(p,d,q)))
+    }
+    
+  }
+  
+}
+min(AIC[which(AIC >10)])
+
+#Arima(2,1,5)
+method_2 = arimax(new_covid_usa$error_tests_rate[1:290],order = c(2,1,5),xreg = new_covid_usa$vaccination_policy[1:290])
+summary(method_2)
+
+
+final_model_prediction_2 = predict(method_2, n.ahead = 30,newxreg = new_covid_usa$vaccination_policy[291:320])
+
+
+plot(covid_usa$Day[291:320],                              # Draw first time series
+     new_covid_usa$error_tests_rate[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[291:320],                             # Draw second time series
+      final_model_prediction_2$pred,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+compare_table_2 = data.frame( final_model_prediction_2$pred,new_covid_usa$error_tests_rate[291:320])
+colnames(compare_table_2) = c("predict","actual")
+head(compare_table_2)
+```
+
+
+Other countries using the ARIMAX model
+```{r}
+#North America
+
+#Canada
+covid_canada <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Canada")
+
+ts_covid_canada = ts(covid_canada$new_cases_per_million,frequency = 7)
+
+plot(covid_canada$Day,                             
+     ts_covid_canada,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd canada")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_canada)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_canada <-
+  covid_canada %>% mutate("error_tests_rate" = error_tests_rate)
+
+new_covid_canada$error_tests_rate[8:320] = error_tests_rate %>% diff(7)
+
+plot.ts(new_covid_canada$error_tests_rate)
+
+#deseasonalized
+```
+
+```{r}
+#CANDA ARIMA
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(error_tests_rate~1, data = new_covid_canada[8:290,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_canada[291:320,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$error_tests_rate[8:320])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_canada$Day[8:320],                              # Draw first time series
+     new_covid_canada$error_tests_rate[8:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[8:320],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_canada$Day[291:320],                              # Draw first time series
+     new_covid_canada$error_tests_rate[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[291:320],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_canada[8:290,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_canada[291:320,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$error_tests_rate[8:320])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_canada$Day[8:320],                              # Draw first time series
+     new_covid_canada$error_tests_rate[8:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[8:320],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_canada$Day[291:320],                              # Draw first time series
+     new_covid_canada$error_tests_rate[291:320],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[291:320],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+#Result are very close to the intercpet null model
+
+```
+```{r}
+#Mexico
+
+covid_mexico <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Mexico")
+
+ts_covid_mexico = ts(covid_mexico$new_cases_per_million,frequency = 7)
+
+plot(covid_mexico$Day,                             
+     ts_covid_mexico,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd mexico")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_mexico)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_mexico <-
+  covid_mexico %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_mexico$error_tests_rate[8:284] = error_tests_rate %>% diff(7)
+```
+
+```{r}
+#Mexico ARIMA
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(error_tests_rate~1, data = new_covid_mexico[8:262,]) 
+
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_mexico[263:284,])
+error_forecast =  predict(error_model, n.ahead = 22)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_mexico$error_tests_rate[8:284])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_mexico$Day[8:284],                              # Draw first time series
+     new_covid_mexico$error_tests_rate[8:284],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal")
+lines(covid_mexico$Day[8:284],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_mexico$Day[263:284],                              # Draw first time series
+     new_covid_mexico$error_tests_rate[263:284],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal")
+lines(covid_mexico$Day[263:284],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_mexico[8:262,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_mexico[263:284,])
+error_forecast =  predict(error_model, n.ahead = 22)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_mexico$error_tests_rate[8:284])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_mexico$Day[8:284],                              # Draw first time series
+     new_covid_mexico$error_tests_rate[8:284],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal")
+lines(covid_mexico$Day[8:284],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_mexico$Day[263:284],                              # Draw first time series
+     new_covid_mexico$error_tests_rate[263:284],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal")
+lines(covid_mexico$Day[263:284],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Panama
+covid_panama <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Panama") %>%
+  na.omit()
+
+ts_covid_panama = ts(covid_panama$new_cases_per_million,frequency = 7)
+
+plot(covid_panama$Day,                             
+     ts_covid_panama,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd panama")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_panama)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_panama <-
+  covid_panama %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_panama$error_tests_rate[7:196] = error_tests_rate %>% diff(7)
+plot.ts(new_covid_panama$error_tests_rate)
+```
+
+```{r}
+#Panama ARIMA
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(error_tests_rate~1, data = new_covid_panama[8:172,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_panama[173:196,])
+error_forecast =  predict(error_model, n.ahead = 24)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_panama$error_tests_rate[8:196])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_panama$Day[8:196],                              # Draw first time series
+     new_covid_panama$error_tests_rate[8:196],
+     type = "l",
+     xlab = "Date",
+     ylab = "Panama Prediction vs. Acutal")
+lines(covid_panama$Day[8:196],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_panama$Day[173:196],                              # Draw first time series
+     new_covid_panama$error_tests_rate[173:196],
+     type = "l",
+     xlab = "Date",
+     ylab = "Panama Prediction vs. Acutal")
+lines(covid_panama$Day[173:196],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_panama[8:172,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error, d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_panama[173:196,])
+error_forecast =  forecast(error_model,h=24)
+
+final_prediction_2 = regression_prediction + error_forecast$mean
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_panama$error_tests_rate[8:196])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_panama$Day[8:196],                              # Draw first time series
+     new_covid_panama$error_tests_rate[8:196],
+     type = "l",
+     xlab = "Date",
+     ylab = "Panama Prediction vs. Acutal")
+lines(covid_panama$Day[8:196],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_panama$Day[173:196],                              # Draw first time series
+     new_covid_panama$error_tests_rate[173:196],
+     type = "l",
+     xlab = "Date",
+     ylab = "Panama Prediction vs. Acutal")
+lines(covid_panama$Day[173:196],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+Asia
+```{r}
+#Asia
+
+#Japan
+covid_japan <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Japan") %>%
+  na.omit()
+
+ts_covid_japan = ts(covid_japan$new_cases_per_million,frequency = 7)
+
+plot(covid_japan$Day,                             
+     ts_covid_japan,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd japan")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_japan)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_japan <-
+  covid_japan %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_japan$error_tests_rate[8:206] = error_tests_rate %>% diff(7)
+```
+
+```{r}
+regression_model = lm(error_tests_rate~1, data = new_covid_japan[8:187,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_japan[188:206,])
+error_forecast =  predict(error_model, n.ahead = 19)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_japan$error_tests_rate[8:206])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_japan$Day[8:206],                              # Draw first time series
+     new_covid_japan$error_tests_rate[8:206],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal")
+lines(covid_japan$Day[8:206],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_japan$Day[188:206],                              # Draw first time series
+     new_covid_japan$error_tests_rate[188:206],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal")
+lines(covid_japan$Day[188:206],                             # Draw second time series
+     final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+```
+
+
+```{r}
+#better effect
+
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_japan[8:187,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_japan[188:206,])
+error_forecast =  predict(error_model, n.ahead = 19)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_japan$error_tests_rate[8:206])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_japan$Day[8:206],                              # Draw first time series
+     new_covid_japan$error_tests_rate[8:206],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal")
+lines(covid_japan$Day[8:206],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_japan$Day[188:206],                              # Draw first time series
+     new_covid_japan$error_tests_rate[188:206],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal")
+lines(covid_japan$Day[188:206],                             # Draw second time series
+     final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+```{r}
+#South Korea
+covid_south_korea <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "South Korea") %>%
+  na.omit()
+
+ts_covid_south_korea = ts(covid_south_korea$new_cases_per_million,frequency = 7)
+
+plot(covid_south_korea$Day,                             
+     ts_covid_south_korea,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd South Korea")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_south_korea)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_south_korea <-
+  covid_south_korea %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_south_korea$error_tests_rate[8:179] = error_tests_rate %>% diff(7)
+```
+
+```{r}
+regression_model = lm(error_tests_rate~1, data = new_covid_south_korea[8:160,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_south_korea[161:179,])
+error_forecast =  predict(error_model, n.ahead = 19)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_south_korea$error_tests_rate[8:179])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_south_korea$Day[8:179],                              # Draw first time series
+     new_covid_south_korea$error_tests_rate[8:179],
+     type = "l",
+     xlab = "Date",
+     ylab = "South Korea Prediction vs. Acutal")
+lines(covid_south_korea$Day[8:179],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_south_korea$Day[161:179],                              # Draw first time series
+     new_covid_south_korea$error_tests_rate[161:179],
+     type = "l",
+     xlab = "Date",
+     ylab = "South Korea Prediction vs. Acutal")
+lines(covid_south_korea$Day[161:179],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+```{r}
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_south_korea[8:160,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_south_korea[161:179,])
+error_forecast =  predict(error_model, n.ahead = 19)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_south_korea$error_tests_rate[8:179])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_south_korea$Day[8:179],                              # Draw first time series
+     new_covid_south_korea$error_tests_rate[8:179],
+     type = "l",
+     xlab = "Date",
+     ylab = "South Korea Prediction vs. Acutal")
+lines(covid_south_korea$Day[8:179],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_south_korea$Day[161:179],                              # Draw first time series
+     new_covid_south_korea$error_tests_rate[161:179],
+     type = "l",
+     xlab = "Date",
+     ylab = "South Korea Prediction vs. Acutal")
+lines(covid_south_korea$Day[161:179],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#India
+covid_india <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "India") %>%
+  na.omit()
+
+ts_covid_india = ts(covid_india$new_cases_per_million,frequency = 7)
+
+plot(covid_india$Day,                             
+     ts_covid_india,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd india")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_india)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_india <-
+  covid_india %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_india$error_tests_rate[8:263] = error_tests_rate %>% diff(7)
+```
+
+```{r}
+regression_model = lm(error_tests_rate~1, data = new_covid_india[8:239,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_india[240:263,])
+error_forecast =  predict(error_model, n.ahead = 24)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_india$error_tests_rate[8:263])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_india$Day[8:263],                              # Draw first time series
+     new_covid_india$error_tests_rate[8:263],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal")
+lines(covid_india$Day[8:263],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_india$Day[240:263],                              # Draw first time series
+     new_covid_india$error_tests_rate[240:263],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal")
+lines(covid_india$Day[240:263],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_india[8:239,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_india[240:263,])
+error_forecast =  predict(error_model, n.ahead = 24)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_india$error_tests_rate[8:263])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_india$Day[8:263],                              # Draw first time series
+     new_covid_india$error_tests_rate[8:263],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal")
+lines(covid_india$Day[8:263],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_india$Day[240:263],                              # Draw first time series
+     new_covid_india$error_tests_rate[240:263],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal")
+lines(covid_india$Day[240:263],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+```{r}
+#Israel
+covid_israel <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Israel") %>%
+  na.omit()
+
+ts_covid_israel = ts(covid_israel$new_cases_per_million,frequency = 7)
+
+plot(covid_israel$Day,                             
+     ts_covid_israel,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd israel")
+
+fit = lm(new_cases_per_million~new_tests_per_thousand,data = covid_israel)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+error_tests_rate = residuals(fit)
+
+new_covid_israel <-
+  covid_israel %>% mutate("error_tests_rate" = error_tests_rate)
+
+#deseasonalized
+new_covid_israel$error_tests_rate[8:317] = error_tests_rate %>% diff(7)
+```
+
+```{r}
+#ARIMA model
+regression_model = lm(error_tests_rate~1, data = new_covid_israel[8:286,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_israel[287:317,])
+error_forecast =  predict(error_model, n.ahead = 31)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_israel$error_tests_rate[8:317])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_israel$Day[8:317],                              # Draw first time series
+     new_covid_israel$error_tests_rate[8:317],
+     type = "l",
+     xlab = "Date",
+     ylab = "Israel Prediction vs. Acutal")
+lines(covid_israel$Day[8:317],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_israel$Day[287:317],                              # Draw first time series
+     new_covid_israel$error_tests_rate[287:317],
+     type = "l",
+     xlab = "Date",
+     ylab = "Israel Prediction vs. Acutal")
+lines(covid_israel$Day[287:317],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+# better effect
+#ARIMAX model
+regression_model = lm(error_tests_rate~as.factor(vaccination_policy), data = new_covid_israel[8:286,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+
+#model prediction
+regression_prediction = predict(regression_model, newdata = new_covid_israel[287:317,])
+error_forecast =  predict(error_model, n.ahead = 31)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_israel$error_tests_rate[8:317])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_israel$Day[8:317],                              # Draw first time series
+     new_covid_israel$error_tests_rate[8:317],
+     type = "l",
+     xlab = "Date",
+     ylab = "Israel Prediction vs. Acutal")
+lines(covid_israel$Day[8:317],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 3)
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_israel$Day[287:317],                              # Draw first time series
+     new_covid_israel$error_tests_rate[287:317],
+     type = "l",
+     xlab = "Date",
+     ylab = "Israel Prediction vs. Acutal")
+lines(covid_israel$Day[287:317],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+
