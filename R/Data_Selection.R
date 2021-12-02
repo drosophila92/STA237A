@@ -90,4 +90,7 @@ covid_north <-
   covid_north %>%
   right_join(GDP_filter, by = "location")
 
+covid_north$vaccination_policy <- as.factor(covid_north$vaccination_policy)
+str(covid_north)
+
 saveRDS(covid_north, "data/covid_north.RData")
