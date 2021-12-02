@@ -1,4 +1,4 @@
-library(dplyr)
+if ( !require(dplyr ) )   { install.packages("dplyr");    library(dplyr) }
 
 # Read data
 vaccination <- read.csv("data/covid-vaccination-policy.csv")
@@ -94,3 +94,29 @@ covid_north$vaccination_policy <- as.factor(covid_north$vaccination_policy)
 str(covid_north)
 
 saveRDS(covid_north, "data/covid_north.RData")
+
+start <- 
+  covid_north %>% 
+  split(.$location) %>% 
+  lapply( function(x) {
+    idx = which( diff(as.integer(x$vaccination_policy)) != 0 )
+    x[sort(c(1L,idx +1L)), ]
+  } ) %>% 
+  bind_rows() %>% 
+  mutate(start = Day) %>% 
+  select(c(location, start, continent, vaccination_policy))
+
+end <- 
+  covid_north %>% 
+  split(.$location) %>% 
+  lapply( function(x) {
+    idx = which( diff(as.integer(x$vaccination_policy)) != 0 )
+    x[sort(c(idx, length(x$Day) )), ]
+  } ) %>% 
+  bind_rows() %>% 
+  mutate(end = Day) %>% 
+  select(c(location, end, continent, vaccination_policy))
+
+policy <- merge(start, end)
+
+saveRDS(policy, file = "data/policy_dates.RData")
