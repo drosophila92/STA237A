@@ -79,13 +79,15 @@ covid_north <-
   filter(location %in% NA_filter$location)
 
 # countries with high regional GDP ranking
-GDP_filter <- c("South Africa", "Morocco", "Ghana", "Cote d'Ivoire", "India", "Japan", "Saudi Arabia", "Indonesia",
-                "United Kingdom", "Italy", "Russia", "Portugal", "United States", "Canada", "Mexico", "Guatemala")
+GDP_filter <- 
+  data.frame(location = c("South Africa", "Morocco", "Ghana", "Cote d'Ivoire", "India", "Japan", "Saudi Arabia", "Indonesia",
+                "United Kingdom", "Italy", "Russia", "Portugal", "United States", "Canada", "Mexico", "Guatemala"),
+  GDPrank = rep(1:4, 4))
 
 
 # keep top GDP countries by continent
 covid_north <-
   covid_north %>%
-  filter(location %in% GDP_filter)
+  right_join(GDP_filter, by = "location")
 
 saveRDS(covid_north, "data/covid_north.RData")
