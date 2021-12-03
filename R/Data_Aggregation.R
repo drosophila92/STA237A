@@ -56,3 +56,37 @@ covid_weekly <-
   bind_rows()
   
 saveRDS(covid_weekly, "./data/covid_north_weekly.RData")
+
+#########################
+
+## policy start and end dates
+
+start <- 
+  covid_weekly %>% 
+  split(.$location) %>% 
+  lapply( function(x) {
+    idx = which( diff(as.integer(x$vaccination_policy)) != 0 )
+    x[sort(c(1L,idx +1L)), ]
+  } ) %>% 
+  bind_rows() %>% 
+  mutate(start = Start_date)  %>% 
+  ungroup(Start_date) %>% 
+  select(c("location", "start", "continent", "vaccination_policy"))
+
+end <- 
+  covid_weekly %>% 
+  split(.$location) %>% 
+  lapply( function(x) {
+    idx = which( diff(as.integer(x$vaccination_policy)) != 0 )
+    x[sort(c(idx, length(x$Start_date) )), ]
+  } ) %>% 
+  bind_rows() %>% 
+  mutate(end = Start_date) %>% 
+  ungroup(Start_date) %>% 
+  select(c("location", "end", "continent", "vaccination_policy"))
+
+policy_weekly <- cbind(start, end = end$end)
+
+saveRDS(policy_weekly, file = "data/policy_weekly_dates.RData")
+
+###########################################
