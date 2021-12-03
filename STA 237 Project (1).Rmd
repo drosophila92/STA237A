@@ -1,0 +1,589 @@
+---
+title: "scatch"
+author: "Yutian Yang"
+date: "11/23/2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(forecast)
+covid <- readRDS("STA237A/data/covid_north_complete.RData")
+
+
+covid_usa <- covid %>% filter(location == "United States")
+```
+
+
+```{r}
+fit = lm(new_cases_per_million~new_tests_per_million+as.factor(continent),data = covid)
+summary(fit)
+
+#Taking out new tests rate effect on new cases rate
+
+residuals = residuals(fit)
+
+new_covid <-
+  covid %>% mutate("residuals" = residuals)
+
+covid_usa <- new_covid %>% filter(location == "United States")
+```
+
+
+```{r}
+new_covid_usa <-
+  covid_usa %>% mutate("residuals_diff" = residuals)
+
+#deseasonalized
+new_covid_usa$residuals_diff[8:409] = new_covid_usa$residuals_diff %>% diff(7)
+plot.ts(new_covid_usa$residuals_diff)
+```
+```{r}
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(residuals_diff~1, data = new_covid_usa[8:379,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_covid_usa[380:409,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$residuals_diff[8:409])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_usa$Day[8:409],                              # Draw first time series
+     new_covid_usa$residuals_diff[8:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[8:409],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_usa$Day[380:409],                              # Draw first time series
+     new_covid_usa$residuals_diff[380:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[380:409],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+```{r}
+regression_model = lm(residuals_diff~as.factor(vaccination_policy), data = new_covid_usa[8:379,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_covid_usa[380:409,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$residuals_diff[8:409])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_usa$Day[8:409],                              # Draw first time series
+     new_covid_usa$residuals_diff[8:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[8:409],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_usa$Day[380:409],                              # Draw first time series
+     new_covid_usa$residuals_diff[380:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[380:409],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+```{r}
+decompose(ts_covid_usa)
+
+new_ts_covid_usa = ts_covid_usa - decompose(ts_covid_usa)$seasonal - decompose(ts_covid_usa)$trend
+
+plot.ts(new_ts_covid_usa)
+```
+
+```{r}
+new_covid_usa <-
+  new_covid_usa %>% mutate("new_ts_covid_usa" = new_ts_covid_usa) %>%
+  na.omit()
+
+regression_model = lm(new_ts_covid_usa~as.factor(vaccination_policy), data = new_covid_usa[1:304,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=0)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_covid_usa[305:314,])
+error_forecast =  predict(error_model, n.ahead = 10)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$new_ts_covid_usa[1:314])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_usa$Day[1:314],                              # Draw first time series
+     new_covid_usa$new_ts_covid_usa[1:314],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[1:314],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_usa$Day[305:314],                              # Draw first time series
+     new_covid_usa$new_ts_covid_usa[305:314],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(covid_usa$Day[305:314],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+```{r}
+#Canada
+covid_canada <-
+  covid_north %>%
+  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
+  filter(location == "Canada")
+
+ts_covid_canada = ts(covid_canada$new_cases_per_million,frequency = 7)
+
+plot(covid_canada$Day,                             
+     ts_covid_canada,
+     type = "l",
+     xlab = "Date",
+     ylab = "new cases per million",
+     main = "ts coivd canada")
+
+decompose(ts_covid_canada)
+
+new_ts_covid_canada = ts_covid_canada - decompose(ts_covid_canada)$seasonal - decompose(ts_covid_canada)$trend
+
+plot.ts(new_ts_covid_canada)
+```
+```{r}
+new_covid_canada <-
+  new_covid_canada %>% mutate("new_ts_covid_canada" = new_ts_covid_canada) %>%
+  na.omit()
+
+regression_model = lm(new_ts_covid_canada~as.factor(vaccination_policy), data = new_covid_canada[1:304,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_covid_canada[305:314,])
+error_forecast =  forecast(error_model,h=10)$mean
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$new_ts_covid_canada[1:314])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(covid_canada$Day[1:314],                              # Draw first time series
+     new_covid_canada$new_ts_covid_canada[1:314],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[1:314],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(covid_canada$Day[305:314],                              # Draw first time series
+     new_covid_canada$new_ts_covid_canada[305:314],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(covid_canada$Day[305:314],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+
+
+```{r}
+#USA example aggregate weekly data
+ts_covid_usa = ts(covid_usa$residuals,frequency = 7)
+ts_covid_usa_2 = ts(colSums(matrix(ts_covid_usa, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_usa$vaccination_policy), nrow=7))
+new_ts_covid_usa = data.frame(1:59,ts_covid_usa_2,vaccine_policy)
+names(new_ts_covid_usa) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_usa)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_usa[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_usa[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_usa$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(new_ts_covid_usa$week[1:58],                              # Draw first time series
+     new_ts_covid_usa$weekly_aggregated_residuals[1:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(new_ts_covid_usa$week[1:58],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(new_ts_covid_usa$week[54:58],                              # Draw first time series
+     new_ts_covid_usa$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(new_ts_covid_usa$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~as.factor(vaccination_policy), data = new_ts_covid_usa[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_usa[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_usa$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(new_ts_covid_usa$week[1:58],                              # Draw first time series
+     new_ts_covid_usa$weekly_aggregated_residuals[1:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(new_ts_covid_usa$week[1:58],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(new_ts_covid_usa$week[54:58],                              # Draw first time series
+     new_ts_covid_usa$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal")
+lines(new_ts_covid_usa$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+```{r}
+#Canada Example on aggregate weekly
+ts_covid_canada = ts(covid_canada$new_cases_per_million,frequency = 7)
+ts_covid_canada_2 = ts(colSums(matrix(ts_covid_canada, nrow=7))) 
+
+vaccine_policy = colSums(matrix(covid_canada$vaccination_policy, nrow=7))
+new_ts_covid_canada = data.frame(1:46,ts_covid_canada_2,vaccine_policy)
+names(new_ts_covid_canada) = c("week","weekly_comfirmed_cases_per_mil","vaccination_policy")
+
+plot.ts(ts_covid_canada)
+```
+
+```{r}
+regression_model = lm(weekly_comfirmed_cases_per_mil~1, data = new_ts_covid_canada[1:40,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[41:45,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(new_ts_covid_canada$week[1:45],                              # Draw first time series
+     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(new_ts_covid_canada$week[1:45],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(new_ts_covid_canada$week[41:45],                              # Draw first time series
+     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[41:45],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(new_ts_covid_canada$week[41:45],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+regression_model = lm(weekly_comfirmed_cases_per_mil~as.factor(vaccination_policy), data = new_ts_covid_canada[1:40,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[41:45,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45])
+colnames(compare_table) = c("predict","actual")
+
+
+plot(new_ts_covid_canada$week[1:45],                              # Draw first time series
+     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(new_ts_covid_canada$week[1:45],                             # Draw second time series
+      compare_table$predict,
+      type = "l",
+      col = 'red')
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+
+plot(new_ts_covid_canada$week[41:45],                              # Draw first time series
+     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[41:45],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal")
+lines(new_ts_covid_canada$week[41:45],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
