@@ -48,7 +48,7 @@ covid_weekly <-
       summarize(weekly_cases_per_million = sum(new_cases_per_million, na.rm = TRUE),
                 weekly_tests_per_million = sum(new_tests_per_million, na.rm = TRUE), 
                 vaccination_policy = min(as.integer(vaccination_policy) -1L ),
-                adjusted_weekly_tests_per_million = sum(adjusted_new_cases_per_million, na.rm = TRUE) ) 
+                adjusted_weekly_cases_per_million = sum(adjusted_new_cases_per_million, na.rm = TRUE) ) 
     df$type <- "training"
     df$type[tail(seq_len(dim(df)[1]), 4L)] <- "validation"
     df
