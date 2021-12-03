@@ -124,7 +124,7 @@ saveRDS(covid_north, "data/covid_north.RData")
 # rows with missing values
 idx <- apply(covid_north, 1, function(x) any(is.na(x)) )
 # complete records
-covid_north_complete <- covid[!idx,]
+covid_north_complete <- covid_north[!idx,]
 saveRDS(covid_north_complete, "data/covid_north_complete.RData")
 
 
