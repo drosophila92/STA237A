@@ -5,10 +5,7 @@ if ( !require(ggpubr ) )   { install.packages("ggpubr");    library(ggpubr) }
 if ( !require(grid) )    { install.packages("grid");    library(grid) }
 
 covid <- readRDS("data/covid_north.RData")
-covid$location <- factor(covid$location, levels = c("Cote d'Ivoire", "Ghana", "Morocco", "South Africa",
-                                                    "India", "Indonesia", "Japan", "Saudi Arabia",
-                                                    "Italy", "Portugal", "Russia", "United Kingdom", 
-                                                    "Canada", "Guatemala", "Mexico", "United States" ))
+
 
 covid_list <- 
   split(covid, covid$location)

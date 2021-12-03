@@ -93,6 +93,12 @@ covid_north <-
 covid_north$vaccination_policy <- as.factor(covid_north$vaccination_policy)
 str(covid_north)
 
+covid_north$location <- factor(covid_north$location, 
+                               levels = c("Cote d'Ivoire", "Ghana", "Morocco", "South Africa",
+                                          "India", "Indonesia", "Japan", "Saudi Arabia",
+                                          "Italy", "Portugal", "Russia", "United Kingdom", 
+                                          "Canada", "Guatemala", "Mexico", "United States" ))
+
 saveRDS(covid_north, "data/covid_north.RData")
 
 start <- 
