@@ -32,12 +32,12 @@ figure3 <-
 figure3
 
 
-# rows with missing values
-idx <- apply(covid, 1, function(x) any(is.na(x)) )
-# complete records
-covid_complete <- covid[!idx,]
-
-# fit_complete <- lm(new_cases_per_million ~ new_tests_per_million, data = covid_complete)
+# # rows with missing values
+# idx <- apply(covid, 1, function(x) any(is.na(x)) )
+# # complete records
+# covid_complete <- covid[!idx,]
+# 
+# # fit_complete <- lm(new_cases_per_million ~ new_tests_per_million, data = covid_complete)
 # covid_complete$adjusted_new_cases_per_million <- residuals(fit_complete)
 # 
 # ggplot(covid_complete, aes(continent, adjusted_new_cases_per_million)) +

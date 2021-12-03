@@ -1,0 +1,18 @@
+---
+title: "Table1"
+author: "Yige Luo"
+date: "12/2/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+|                      |   Df|   Sum Sq|    Mean Sq| F value| Pr(>F)| % variance explained|
+|:---------------------|----:|--------:|----------:|-------:|------:|--------------------:|
+|new_tests_per_million |    1| 41369748| 41369747.7|  2295.3|      0|                 28.0|
+|continent             |    3|  7786113|  2595371.1|   144.0|      0|                  5.3|
+|Residuals             | 5482| 98803994|    18023.3|       -|      -|                 66.8|
