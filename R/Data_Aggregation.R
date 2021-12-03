@@ -84,7 +84,7 @@ end <-
     x[sort(c(idx, length(x$Start_date) )), ]
   } ) %>% 
   bind_rows() %>% 
-  mutate(end = Start_date) %>% 
+  mutate(end = Start_date + 6) %>% 
   select(c("location", "end", "continent", "vaccination_policy"))
 
 policy_weekly <- cbind(start, end = end$end)
