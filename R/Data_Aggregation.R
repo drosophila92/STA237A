@@ -54,7 +54,11 @@ covid_weekly <-
     df
    }) %>% 
   bind_rows()
-  
+
+attr(covid_weekly, "groups") <- NULL
+covid_weekly <- as.data.frame(covid_weekly)
+covid_weekly$vaccination_policy <- as.factor(covid_weekly$vaccination_policy)
+str(covid_weekly)
 saveRDS(covid_weekly, "./data/covid_north_weekly.RData")
 
 #########################
@@ -70,7 +74,6 @@ start <-
   } ) %>% 
   bind_rows() %>% 
   mutate(start = Start_date)  %>% 
-  ungroup(Start_date) %>% 
   select(c("location", "start", "continent", "vaccination_policy"))
 
 end <- 
@@ -82,10 +85,10 @@ end <-
   } ) %>% 
   bind_rows() %>% 
   mutate(end = Start_date) %>% 
-  ungroup(Start_date) %>% 
   select(c("location", "end", "continent", "vaccination_policy"))
 
 policy_weekly <- cbind(start, end = end$end)
+str(policy_weekly)
 
 saveRDS(policy_weekly, file = "data/policy_weekly_dates.RData")
 
