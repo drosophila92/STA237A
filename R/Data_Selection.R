@@ -80,8 +80,10 @@ covid_north <-
 
 # countries with high regional GDP ranking
 GDP_filter <- 
-  data.frame(location = c("South Africa", "Morocco", "Ghana", "Cote d'Ivoire", "India", "Japan", "Saudi Arabia", "Indonesia",
-                "United Kingdom", "Italy", "Russia", "Portugal", "United States", "Canada", "Mexico", "Guatemala"),
+  data.frame(location = c("Morocco", "Ghana", "Cote d'Ivoire", "Uganda", 
+                          "India", "Japan", "Saudi Arabia", "Indonesia",
+                          "United Kingdom", "Italy", "Russia", "Portugal",
+                          "United States", "Canada", "Mexico", "Guatemala"),
   GDPrank = rep(1:4, 4))
 
 
@@ -91,15 +93,39 @@ covid_north <-
   right_join(GDP_filter, by = "location")
 
 covid_north$vaccination_policy <- as.factor(covid_north$vaccination_policy)
-str(covid_north)
 
 covid_north$location <- factor(covid_north$location, 
-                               levels = c("Cote d'Ivoire", "Ghana", "Morocco", "South Africa",
-                                          "India", "Indonesia", "Japan", "Saudi Arabia",
-                                          "Italy", "Portugal", "Russia", "United Kingdom", 
-                                          "Canada", "Guatemala", "Mexico", "United States" ))
+                               levels = c("Morocco", "Ghana", "Cote d'Ivoire", "Uganda", 
+                                          "India", "Japan", "Saudi Arabia", "Indonesia",
+                                          "United Kingdom", "Italy", "Russia", "Portugal",
+                                          "United States", "Canada", "Mexico", "Guatemala") )
+
+# add training vs validate label
+covid_north <- 
+  covid_north %>% 
+  split(.$location) %>% 
+  lapply(., function(x){
+    idx <- seq_along(x$Day)
+    mutate(x, type = ifelse(idx %in% tail(idx, 30L), "validation", "training") )
+
+  }) %>% 
+  bind_rows()
+
+str(covid_north)
 
 saveRDS(covid_north, "data/covid_north.RData")
+
+############################################
+## complete records 
+
+# rows with missing values
+idx <- apply(covid_north, 1, function(x) any(is.na(x)) )
+# complete records
+covid_north_complete <- covid[!idx,]
+saveRDS(covid_north_complete, "data/covid_north_complete.RData")
+
+
+## policy start and end dates
 
 start <- 
   covid_north %>% 
@@ -126,3 +152,6 @@ end <-
 policy <- merge(start, end)
 
 saveRDS(policy, file = "data/policy_dates.RData")
+
+###########################################
+
