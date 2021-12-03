@@ -113,6 +113,9 @@ covid_north <-
 
 str(covid_north)
 
+## correct a potential outlier in Uganda data
+covid_north[ covid_north$location == "Uganda" & covid_north$Day == "2021-08-23", ]$new_cases_per_million <- NA
+
 saveRDS(covid_north, "data/covid_north.RData")
 
 ############################################
