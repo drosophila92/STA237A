@@ -32,31 +32,31 @@ figure3 <-
 figure3
 
 
-# # rows with missing values
-# idx <- apply(covid, 1, function(x) any(is.na(x)) )
-# # complete records  
-# covid_complete <- covid[!idx,]
-# 
+# rows with missing values
+idx <- apply(covid, 1, function(x) any(is.na(x)) )
+# complete records
+covid_complete <- covid[!idx,]
+
 # fit_complete <- lm(new_cases_per_million ~ new_tests_per_million, data = covid_complete)
 # covid_complete$adjusted_new_cases_per_million <- residuals(fit_complete)
 # 
 # ggplot(covid_complete, aes(continent, adjusted_new_cases_per_million)) +
 #   geom_boxplot()
 # 
-#   
-# covid_list <- 
+# 
+# covid_list <-
 #   split(covid_complete, covid_complete$location)
 # 
-# fit_residual <- 
+# fit_residual <-
 #   lapply(covid_list, function(x){
 #     fit = lm(new_cases_per_million ~ new_tests_per_million,  data = x)
 #     data.frame(residual = residuals(fit) )
 #   })
 # 
-# covid_list<- 
+# covid_list<-
 #   mapply(covid_list, fit_residual, FUN = "cbind", SIMPLIFY = FALSE)
 # 
-# covid_corrected <- 
+# covid_corrected <-
 #   bind_rows(covid_list)
 # 
 # ggplot(covid_corrected, aes(continent, residual)) +
