@@ -93,3 +93,25 @@ str(policy_weekly)
 saveRDS(policy_weekly, file = "data/policy_weekly_dates.RData")
 
 ###########################################
+
+# weekly contrast
+covid_contrast <- 
+  covid_list %>% 
+  lapply( function(x){
+    len = 7 * dim(x)[1] %/% 7
+    x[seq_len(len),]
+  } )  %>% 
+  lapply( function(x) {
+    idx = seq_len(dim(x)[1])
+    df <- x[-c(tail(idx, 7L)), ] %>% 
+      select(-c(new_cases_per_million, adjusted_new_cases_per_million, type))
+    df$ctrst_new_cases_per_million <- diff(x$new_cases_per_million , lag = 7L )
+    df$ctrst_adjusted_new_cases_per_million <- diff(x$adjusted_new_cases_per_million , lag = 7L )
+    df$type <- "training"
+    df$type[tail(seq_len(dim(df)[1]), 30L)] <- "validation"
+    df
+   }) %>% 
+  bind_rows()
+
+str(covid_contrast)  
+saveRDS(covid_contrast, "./data/covid_north_contrast.RData")
