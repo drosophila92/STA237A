@@ -8,10 +8,12 @@ output: html_document
 ```{r}
 library(tidyverse)
 library(forecast)
-covid <- readRDS("STA237A/data/covid_north_complete.RData")
+library(ggplot2)
+covid <- readRDS("data/covid_north_complete.RData")
 
 
-covid_usa <- covid %>% filter(location == "United States")
+
+
 ```
 
 
@@ -26,7 +28,28 @@ residuals = residuals(fit)
 new_covid <-
   covid %>% mutate("residuals" = residuals)
 
+new_covid[2] = as.Date(new_covid$Day)
+
 covid_usa <- new_covid %>% filter(location == "United States")
+
+covid_canada <- new_covid %>% filter(location == "Canada")
+
+covid_cote <- new_covid %>% filter(location ==  "Cote d'Ivoire") 
+covid_ghana <- new_covid %>% filter(location ==  "Ghana") 
+covid_guatemala <- new_covid %>% filter(location ==  "Guatemala") 
+covid_india <- new_covid %>% filter(location ==  "India") 
+covid_indonesia <- new_covid %>% filter(location ==  "Indonesia") 
+covid_italy <- new_covid %>% filter(location ==  "Italy") 
+covid_japan <- new_covid %>% filter(location ==  "Japan") 
+covid_mexico <- new_covid %>% filter(location ==  "Mexico") 
+covid_morocco <- new_covid %>% filter(location ==  "Morocco") 
+covid_portugal <- new_covid %>% filter(location ==  "Portugal") 
+covid_russia <- new_covid %>% filter(location ==  "Russia") 
+covid_saudi <- new_covid %>% filter(location ==  "Saudi Arabia") 
+covid_south_africa <- new_covid %>% filter(location ==  "South Africa") 
+covid_uk <- new_covid %>% filter(location ==  "United Kingdom")
+
+
 ```
 
 
@@ -50,6 +73,7 @@ ts_error = ts(error)
 #ARIMA on error
 
 error_model = auto.arima(ts_error,d=1)
+fitted_error = fitted(error_model)
 summary(error_model)
 
 checkresiduals(error_model)
@@ -57,7 +81,7 @@ checkresiduals(error_model)
 #goodness of fit
 regression_prediction = predict(regression_model)
 
-final_prediction = regression_prediction + error
+final_prediction = regression_prediction + fitted_error
 
 regression_prediction = predict(regression_model, newdata = new_covid_usa[380:409,])
 error_forecast =  predict(error_model, n.ahead = 30)$pred
@@ -70,28 +94,27 @@ final_prediction_2 = regression_prediction + error_forecast
 
 compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$residuals_diff[8:409])
 colnames(compare_table) = c("predict","actual")
+```
 
 
-plot(covid_usa$Day[8:409],                              # Draw first time series
-     new_covid_usa$residuals_diff[8:409],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[8:409],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
+```{r}
+ggplot(data = new_covid_usa[8:409,]) + 
+  geom_line(aes(x=Day, y=residuals_diff, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(0,1,2)")
+```
 
 
-
-plot(covid_usa$Day[380:409],                              # Draw first time series
+```{r}
+plot(new_covid_usa$Day[380:409],                              # Draw first time series
      new_covid_usa$residuals_diff[380:409],
      type = "l",
      xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[380:409],                             # Draw second time series
+     ylab = "USA Prediction vs. Acutal: Null Model")
+lines(new_covid_usa$Day[380:409],                             # Draw second time series
       final_prediction_2,
       type = "l",
       col = "red")
@@ -100,7 +123,20 @@ legend(x = "topright",legend=c("actual", "prediction"),
 
 ```
 ```{r}
+#Training MSE USA Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
 regression_model = lm(residuals_diff~as.factor(vaccination_policy), data = new_covid_usa[8:379,]) 
+
 summary(regression_model)
 anova(regression_model)
 
@@ -110,6 +146,7 @@ ts_error = ts(error)
 #ARIMA on error
 
 error_model = auto.arima(ts_error,d=1)
+fitted_error = fitted(error_model)
 summary(error_model)
 
 checkresiduals(error_model)
@@ -117,7 +154,7 @@ checkresiduals(error_model)
 #goodness of fit
 regression_prediction = predict(regression_model)
 
-final_prediction = regression_prediction + error
+final_prediction = regression_prediction + fitted_error
 
 regression_prediction = predict(regression_model, newdata = new_covid_usa[380:409,])
 error_forecast =  predict(error_model, n.ahead = 30)$pred
@@ -132,26 +169,22 @@ compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$
 colnames(compare_table) = c("predict","actual")
 
 
-plot(covid_usa$Day[8:409],                              # Draw first time series
-     new_covid_usa$residuals_diff[8:409],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[8:409],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
+ggplot(data = new_covid_usa[8:409,]) + 
+  geom_line(aes(x=Day, y=residuals_diff, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(0,1,2)")
 
 
 
-plot(covid_usa$Day[380:409],                              # Draw first time series
+plot(new_covid_usa$Day[380:409],                              # Draw first time series
      new_covid_usa$residuals_diff[380:409],
      type = "l",
      xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[380:409],                             # Draw second time series
+     ylab = "USA Prediction vs. Acutal: Full Model")
+lines(new_covid_usa$Day[380:409],                             # Draw second time series
       final_prediction_2,
       type = "l",
       col = "red")
@@ -160,7 +193,174 @@ legend(x = "topright",legend=c("actual", "prediction"),
 
 ```
 ```{r}
-decompose(ts_covid_usa)
+#Training MSE USA Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+new_covid_canada <-
+  covid_canada %>% mutate("residuals_diff" = residuals)
+
+#deseasonalized
+new_covid_canada$residuals_diff[8:409] = new_covid_canada$residuals_diff %>% diff(7)
+plot.ts(new_covid_canada$residuals_diff)
+```
+
+```{r}
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(residuals_diff~1, data = new_covid_canada[8:379,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_covid_canada[380:409,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$residuals_diff[8:409])
+colnames(compare_table) = c("predict","actual")
+
+
+
+ggplot(data = new_covid_canada[8:409,]) + 
+  geom_line(aes(x=Day, y=residuals_diff, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,1,1)")
+
+
+
+plot(new_covid_canada$Day[380:409],                              # Draw first time series
+     new_covid_canada$residuals_diff[380:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal: Null Model")
+lines(new_covid_canada$Day[380:409],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+```{r}
+#Training MSE Canada Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+# ARIMA as a special case of the ARIMAX intercept
+regression_model = lm(residuals_diff~as.factor(vaccination_policy), data = new_covid_canada[8:379,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error,d=1)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_covid_canada[380:409,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$residuals_diff[8:409])
+colnames(compare_table) = c("predict","actual")
+
+
+
+ggplot(data = new_covid_canada[8:409,]) + 
+  geom_line(aes(x=Day, y=residuals_diff, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,1,1)")
+
+
+
+plot(new_covid_canada$Day[380:409],                              # Draw first time series
+     new_covid_canada$residuals_diff[380:409],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal: Full Model")
+lines(new_covid_canada$Day[380:409],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+```{r}
+#Training MSE Canada Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+
+#USA : Yt - Mt - St 
+ts_covid_usa = ts(covid_usa$new_cases_per_million, frequency = 7)
+#decompose(ts_covid_usa)
 
 new_ts_covid_usa = ts_covid_usa - decompose(ts_covid_usa)$seasonal - decompose(ts_covid_usa)$trend
 
@@ -171,93 +371,10 @@ plot.ts(new_ts_covid_usa)
 new_covid_usa <-
   new_covid_usa %>% mutate("new_ts_covid_usa" = new_ts_covid_usa) %>%
   na.omit()
-
-regression_model = lm(new_ts_covid_usa~as.factor(vaccination_policy), data = new_covid_usa[1:304,]) 
-summary(regression_model)
-anova(regression_model)
-
-error = residuals(regression_model)
-ts_error = ts(error)
-
-#ARIMA on error
-
-error_model = auto.arima(ts_error,d=0)
-summary(error_model)
-
-checkresiduals(error_model)
-
-#goodness of fit
-regression_prediction = predict(regression_model)
-
-final_prediction = regression_prediction + error
-
-regression_prediction = predict(regression_model, newdata = new_covid_usa[305:314,])
-error_forecast =  predict(error_model, n.ahead = 10)$pred
-
-final_prediction_2 = regression_prediction + error_forecast
-
-
-#compare prediction and actual
-
-
-compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$new_ts_covid_usa[1:314])
-colnames(compare_table) = c("predict","actual")
-
-
-plot(covid_usa$Day[1:314],                              # Draw first time series
-     new_covid_usa$new_ts_covid_usa[1:314],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[1:314],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
-
-
-
-plot(covid_usa$Day[305:314],                              # Draw first time series
-     new_covid_usa$new_ts_covid_usa[305:314],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(covid_usa$Day[305:314],                             # Draw second time series
-      final_prediction_2,
-      type = "l",
-      col = "red")
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
 ```
+
 ```{r}
-#Canada
-covid_canada <-
-  covid_north %>%
-  select(c("location","Day","new_cases_per_million","new_tests_per_thousand","total_vaccinations","vaccination_policy")) %>%
-  filter(location == "Canada")
-
-ts_covid_canada = ts(covid_canada$new_cases_per_million,frequency = 7)
-
-plot(covid_canada$Day,                             
-     ts_covid_canada,
-     type = "l",
-     xlab = "Date",
-     ylab = "new cases per million",
-     main = "ts coivd canada")
-
-decompose(ts_covid_canada)
-
-new_ts_covid_canada = ts_covid_canada - decompose(ts_covid_canada)$seasonal - decompose(ts_covid_canada)$trend
-
-plot.ts(new_ts_covid_canada)
-```
-```{r}
-new_covid_canada <-
-  new_covid_canada %>% mutate("new_ts_covid_canada" = new_ts_covid_canada) %>%
-  na.omit()
-
-regression_model = lm(new_ts_covid_canada~as.factor(vaccination_policy), data = new_covid_canada[1:304,]) 
+regression_model = lm(new_ts_covid_usa~1, data = new_covid_usa[1:373,]) 
 summary(regression_model)
 anova(regression_model)
 
@@ -267,6 +384,7 @@ ts_error = ts(error)
 #ARIMA on error
 
 error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
 summary(error_model)
 
 checkresiduals(error_model)
@@ -274,10 +392,10 @@ checkresiduals(error_model)
 #goodness of fit
 regression_prediction = predict(regression_model)
 
-final_prediction = regression_prediction + error
+final_prediction = regression_prediction + fitted_error
 
-regression_prediction = predict(regression_model, newdata = new_covid_canada[305:314,])
-error_forecast =  forecast(error_model,h=10)$mean
+regression_prediction = predict(regression_model, newdata = new_covid_usa[374:403,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
 
 final_prediction_2 = regression_prediction + error_forecast
 
@@ -285,36 +403,280 @@ final_prediction_2 = regression_prediction + error_forecast
 #compare prediction and actual
 
 
-compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$new_ts_covid_canada[1:314])
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$new_ts_covid_usa[1:403])
 colnames(compare_table) = c("predict","actual")
 
 
-plot(covid_canada$Day[1:314],                              # Draw first time series
-     new_covid_canada$new_ts_covid_canada[1:314],
+ggplot(data = new_covid_usa[1:403,]) + 
+  geom_line(aes(x=Day, y=new_ts_covid_usa, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(5,0,3)")
+
+
+
+plot(covid_usa$Day[374:403],                              # Draw first time series
+     new_covid_usa$new_ts_covid_usa[374:403],
      type = "l",
      xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(covid_canada$Day[1:314],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
-
-
-
-plot(covid_canada$Day[305:314],                              # Draw first time series
-     new_covid_canada$new_ts_covid_canada[305:314],
-     type = "l",
-     xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(covid_canada$Day[305:314],                             # Draw second time series
+     ylab = "USA Prediction vs. Acutal: Null Model")
+lines(covid_usa$Day[374:403],                             # Draw second time series
       final_prediction_2,
       type = "l",
       col = "red")
 legend(x = "topright",legend=c("actual", "prediction"),
        col=c("black", "red"), lty=1, cex=0.5)
 ```
+```{r}
+#Training MSE USA Null Method2
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+regression_model = lm(new_ts_covid_usa~as.factor(vaccination_policy), data = new_covid_usa[1:373,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_covid_usa[374:403,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_usa$new_ts_covid_usa[1:403])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_covid_usa[1:403,]) + 
+  geom_line(aes(x=Day, y=new_ts_covid_usa, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,2)")
+
+
+plot(covid_usa$Day[374:403],                              # Draw first time series
+     new_covid_usa$new_ts_covid_usa[374:403],
+     type = "l",
+     xlab = "Date",
+     ylab = "USA Prediction vs. Acutal: Full Model")
+lines(covid_usa$Day[374:403],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE USA Full Method 2
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+#Canada : Yt - Mt - St 
+ts_covid_canada = ts(covid_canada$new_cases_per_million, frequency = 7)
+#decompose(ts_covid_canada)
+
+new_ts_covid_canada = ts_covid_canada - decompose(ts_covid_canada)$seasonal - decompose(ts_covid_canada)$trend
+
+plot.ts(new_ts_covid_canada)
+```
+
+
+```{r}
+new_covid_canada <-
+  new_covid_canada %>% mutate("new_ts_covid_canada" = new_ts_covid_canada) %>%
+  na.omit()
+```
+
+```{r}
+regression_model = lm(new_ts_covid_canada~1, data = new_covid_canada[1:373,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_covid_canada[374:403,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$new_ts_covid_canada[1:403])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_covid_canada[1:403,]) + 
+  geom_line(aes(x=Day, y=new_ts_covid_canada, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(5,0,1)")
+
+
+
+plot(new_covid_canada$Day[374:403],                              # Draw first time series
+     new_covid_canada$new_ts_covid_canada[374:403],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal: Null Model")
+lines(new_covid_canada$Day[374:403],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Canada Null Method 2
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+regression_model = lm(new_ts_covid_canada~as.factor(vaccination_policy), data = new_covid_canada[1:373,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_covid_canada[374:403,])
+error_forecast =  predict(error_model, n.ahead = 30)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_covid_canada$new_ts_covid_canada[1:403])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_covid_canada[1:403,]) + 
+  geom_line(aes(x=Day, y=new_ts_covid_canada, color = "black")) + 
+  geom_line(aes(x=Day, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Date",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(5,0,2)")
+
+
+
+
+plot(new_covid_canada$Day[374:403],                              # Draw first time series
+     new_covid_canada$new_ts_covid_canada[374:403],
+     type = "l",
+     xlab = "Date",
+     ylab = "Canada Prediction vs. Acutal: Full Model")
+lines(new_covid_canada$Day[374:403],                             # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Canada Full Method 2
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -328,7 +690,7 @@ vaccine_policy = colSums(matrix(as.numeric(covid_usa$vaccination_policy), nrow=7
 new_ts_covid_usa = data.frame(1:59,ts_covid_usa_2,vaccine_policy)
 names(new_ts_covid_usa) = c("week","weekly_aggregated_residuals","vaccination_policy")
 
-plot.ts(ts_covid_usa)
+plot.ts(ts_covid_usa_2)
 ```
 ```{r}
 regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_usa[1:53,]) 
@@ -364,25 +726,22 @@ compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_u
 colnames(compare_table) = c("predict","actual")
 
 
-plot(new_ts_covid_usa$week[1:58],                              # Draw first time series
-     new_ts_covid_usa$weekly_aggregated_residuals[1:58],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(new_ts_covid_usa$week[1:58],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
 
+
+ggplot(data = new_ts_covid_usa[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(1,1,0)")
 
 
 plot(new_ts_covid_usa$week[54:58],                              # Draw first time series
      new_ts_covid_usa$weekly_aggregated_residuals[54:58],
      type = "l",
      xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
+     ylab = "USA Prediction vs. Acutal: Null Model")
 lines(new_ts_covid_usa$week[54:58],                            # Draw second time series
       final_prediction_2,
       type = "l",
@@ -391,10 +750,20 @@ legend(x = "topright",legend=c("actual", "prediction"),
        col=c("black", "red"), lty=1, cex=0.5)
 ```
 
+```{r}
+#Training MSE USA Null Method 3
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
 
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
 
 ```{r}
-regression_model = lm(weekly_aggregated_residuals~as.factor(vaccination_policy), data = new_ts_covid_usa[1:53,]) 
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_usa[1:53,]) 
 summary(regression_model)
 anova(regression_model)
 
@@ -428,17 +797,13 @@ compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_u
 colnames(compare_table) = c("predict","actual")
 
 
-plot(new_ts_covid_usa$week[1:58],                              # Draw first time series
-     new_ts_covid_usa$weekly_aggregated_residuals[1:58],
-     type = "l",
-     xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
-lines(new_ts_covid_usa$week[1:58],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
+ggplot(data = new_ts_covid_usa[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "USA Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(5,0,0)")
 
 
 
@@ -446,7 +811,7 @@ plot(new_ts_covid_usa$week[54:58],                              # Draw first tim
      new_ts_covid_usa$weekly_aggregated_residuals[54:58],
      type = "l",
      xlab = "Date",
-     ylab = "USA Prediction vs. Acutal")
+     ylab = "USA Prediction vs. Acutal: Full Model")
 lines(new_ts_covid_usa$week[54:58],                            # Draw second time series
       final_prediction_2,
       type = "l",
@@ -454,20 +819,36 @@ lines(new_ts_covid_usa$week[54:58],                            # Draw second tim
 legend(x = "topright",legend=c("actual", "prediction"),
        col=c("black", "red"), lty=1, cex=0.5)
 ```
+
+```{r}
+#Training MSE USA Full Method3
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
 ```{r}
 #Canada Example on aggregate weekly
-ts_covid_canada = ts(covid_canada$new_cases_per_million,frequency = 7)
+ts_covid_canada = ts(covid_canada$residuals,frequency = 7)
 ts_covid_canada_2 = ts(colSums(matrix(ts_covid_canada, nrow=7))) 
 
-vaccine_policy = colSums(matrix(covid_canada$vaccination_policy, nrow=7))
-new_ts_covid_canada = data.frame(1:46,ts_covid_canada_2,vaccine_policy)
-names(new_ts_covid_canada) = c("week","weekly_comfirmed_cases_per_mil","vaccination_policy")
+vaccine_policy = colSums(matrix(as.numeric(covid_canada$vaccination_policy), nrow=7))
+new_ts_covid_canada = data.frame(1:59,ts_covid_canada_2,vaccine_policy)
+names(new_ts_covid_canada) = c("week","weekly_aggregated_residuals","vaccination_policy")
 
-plot.ts(ts_covid_canada)
+plot.ts(ts_covid_canada_2)
 ```
 
+
 ```{r}
-regression_model = lm(weekly_comfirmed_cases_per_mil~1, data = new_ts_covid_canada[1:40,]) 
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_canada[1:53,]) 
 summary(regression_model)
 anova(regression_model)
 
@@ -477,6 +858,7 @@ ts_error = ts(error)
 #ARIMA on error
 
 error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
 summary(error_model)
 
 checkresiduals(error_model)
@@ -484,9 +866,9 @@ checkresiduals(error_model)
 #goodness of fit
 regression_prediction = predict(regression_model)
 
-final_prediction = regression_prediction + error
+final_prediction = regression_prediction + fitted_error
 
-regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[41:45,])
+regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[54:58,])
 error_forecast =  predict(error_model, n.ahead = 5)$pred
 
 final_prediction_2 = regression_prediction + error_forecast
@@ -495,30 +877,26 @@ final_prediction_2 = regression_prediction + error_forecast
 #compare prediction and actual
 
 
-compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45])
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_aggregated_residuals[1:58])
 colnames(compare_table) = c("predict","actual")
 
 
-plot(new_ts_covid_canada$week[1:45],                              # Draw first time series
-     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45],
+ggplot(data = new_ts_covid_canada[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_canada$week[54:58],                              # Draw first time series
+     new_ts_covid_canada$weekly_aggregated_residuals[54:58],
      type = "l",
      xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(new_ts_covid_canada$week[1:45],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
-
-
-
-plot(new_ts_covid_canada$week[41:45],                              # Draw first time series
-     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[41:45],
-     type = "l",
-     xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(new_ts_covid_canada$week[41:45],                            # Draw second time series
+     ylab = "Canada Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_canada$week[54:58],                            # Draw second time series
       final_prediction_2,
       type = "l",
       col = "red")
@@ -526,9 +904,20 @@ legend(x = "topright",legend=c("actual", "prediction"),
        col=c("black", "red"), lty=1, cex=0.5)
 ```
 
+```{r}
+#Training MSE Canada Null method 3
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
 
 ```{r}
-regression_model = lm(weekly_comfirmed_cases_per_mil~as.factor(vaccination_policy), data = new_ts_covid_canada[1:40,]) 
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_canada[1:53,]) 
 summary(regression_model)
 anova(regression_model)
 
@@ -538,6 +927,7 @@ ts_error = ts(error)
 #ARIMA on error
 
 error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
 summary(error_model)
 
 checkresiduals(error_model)
@@ -545,9 +935,9 @@ checkresiduals(error_model)
 #goodness of fit
 regression_prediction = predict(regression_model)
 
-final_prediction = regression_prediction + error
+final_prediction = regression_prediction + fitted_error
 
-regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[41:45,])
+regression_prediction = predict(regression_model, newdata = new_ts_covid_canada[54:58,])
 error_forecast =  predict(error_model, n.ahead = 5)$pred
 
 final_prediction_2 = regression_prediction + error_forecast
@@ -556,30 +946,26 @@ final_prediction_2 = regression_prediction + error_forecast
 #compare prediction and actual
 
 
-compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45])
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_canada$weekly_aggregated_residuals[1:58])
 colnames(compare_table) = c("predict","actual")
 
 
-plot(new_ts_covid_canada$week[1:45],                              # Draw first time series
-     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[1:45],
+ggplot(data = new_ts_covid_canada[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Canada Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,1)")
+
+
+
+plot(new_ts_covid_canada$week[54:58],                              # Draw first time series
+     new_ts_covid_canada$weekly_aggregated_residuals[54:58],
      type = "l",
      xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(new_ts_covid_canada$week[1:45],                             # Draw second time series
-      compare_table$predict,
-      type = "l",
-      col = 'red')
-legend(x = "topright",legend=c("actual", "prediction"),
-       col=c("black", "red"), lty=1, cex=0.5)
-
-
-
-plot(new_ts_covid_canada$week[41:45],                              # Draw first time series
-     new_ts_covid_canada$weekly_comfirmed_cases_per_mil[41:45],
-     type = "l",
-     xlab = "Date",
-     ylab = "Canada Prediction vs. Acutal")
-lines(new_ts_covid_canada$week[41:45],                            # Draw second time series
+     ylab = "Canada Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_canada$week[54:58],                            # Draw second time series
       final_prediction_2,
       type = "l",
       col = "red")
@@ -587,3 +973,2190 @@ legend(x = "topright",legend=c("actual", "prediction"),
        col=c("black", "red"), lty=1, cex=0.5)
 ```
 
+```{r}
+#Training MSE Canada Full Method 3
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+#Cote Example on aggregate weekly
+ts_covid_cote = ts(covid_cote$residuals,frequency = 7)
+ts_covid_cote_2 = ts(colSums(matrix(ts_covid_cote, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_cote$vaccination_policy), nrow=7))
+new_ts_covid_cote = data.frame(1:37,ts_covid_cote_2,vaccine_policy)
+names(new_ts_covid_cote) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_cote_2)
+```
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_cote[1:32,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_cote[33:37,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_cote$weekly_aggregated_residuals[1:37])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_cote[1:37,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Cote Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(0,1,0)")
+
+
+
+plot(new_ts_covid_cote$week[33:37],                              # Draw first time series
+     new_ts_covid_cote$weekly_aggregated_residuals[33:37],
+     type = "l",
+     xlab = "Date",
+     ylab = "Cote Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_cote$week[33:37],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Cote Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_cote[1:32,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_cote[33:37,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_cote$weekly_aggregated_residuals[1:37])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_cote[1:37,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Cote Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(1,0,0)")
+
+
+
+plot(new_ts_covid_cote$week[33:37],                              # Draw first time series
+     new_ts_covid_cote$weekly_aggregated_residuals[33:37],
+     type = "l",
+     xlab = "Date",
+     ylab = "Cote Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_cote$week[33:37],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Cote Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+#Ghana Example on aggregate weekly
+ts_covid_ghana = ts(covid_ghana$residuals,frequency = 7)
+ts_covid_ghana_2 = ts(colSums(matrix(ts_covid_ghana, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_ghana$vaccination_policy), nrow=7))
+new_ts_covid_ghana = data.frame(1:30,ts_covid_ghana_2,vaccine_policy)
+names(new_ts_covid_ghana) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_ghana_2)
+```
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_ghana[1:25,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_ghana[26:30,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_ghana$weekly_aggregated_residuals[1:30])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_ghana[1:30,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Ghana Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(1,0,0)")
+
+
+plot(new_ts_covid_ghana$week[26:30],                              # Draw first time series
+     new_ts_covid_ghana$weekly_aggregated_residuals[26:30],
+     type = "l",
+     xlab = "Date",
+     ylab = "Ghana Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_ghana$week[26:30],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Ghana Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_ghana[1:25,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_ghana[26:30,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_ghana$weekly_aggregated_residuals[1:30])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_ghana[1:30,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Ghana Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(1,0,0)")
+
+
+
+plot(new_ts_covid_ghana$week[26:30],                              # Draw first time series
+     new_ts_covid_ghana$weekly_aggregated_residuals[26:30],
+     type = "l",
+     xlab = "Date",
+     ylab = "Ghana Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_ghana$week[26:30],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Ghana Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Guatemala Example on aggregate weekly
+ts_covid_guatemala = ts(covid_guatemala$residuals,frequency = 7)
+ts_covid_guatemala_2 = ts(colSums(matrix(ts_covid_guatemala, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_guatemala$vaccination_policy), nrow=7))
+new_ts_covid_guatemala = data.frame(1:54,ts_covid_guatemala_2,vaccine_policy)
+names(new_ts_covid_guatemala) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_guatemala_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_guatemala[1:49,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_guatemala[50:54,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_guatemala$weekly_aggregated_residuals[1:54])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_guatemala[1:54,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Guatemala Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(0,1,1)")
+
+
+plot(new_ts_covid_guatemala$week[50:54],                              # Draw first time series
+     new_ts_covid_guatemala$weekly_aggregated_residuals[50:54],
+     type = "l",
+     xlab = "Date",
+     ylab = "Guatemala Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_guatemala$week[50:54],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Guaremala Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_guatemala[1:49,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_guatemala[50:54,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_guatemala$weekly_aggregated_residuals[1:54])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_guatemala[1:54,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Guatemala Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+plot(new_ts_covid_guatemala$week[50:54],                              # Draw first time series
+     new_ts_covid_guatemala$weekly_aggregated_residuals[50:54],
+     type = "l",
+     xlab = "Date",
+     ylab = "Guatemala Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_guatemala$week[50:54],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Guatemala Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#India Example on aggregate weekly
+ts_covid_india = ts(covid_india$residuals,frequency = 7)
+ts_covid_india_2 = ts(colSums(matrix(ts_covid_india, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_india$vaccination_policy), nrow=7))
+new_ts_covid_india = data.frame(1:52,ts_covid_india_2,vaccine_policy)
+names(new_ts_covid_india) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_india_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_india[1:47,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_india[48:52,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_india$weekly_aggregated_residuals[1:52])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_india[1:52,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "India Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_india$week[48:52],                              # Draw first time series
+     new_ts_covid_india$weekly_aggregated_residuals[48:52],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_india$week[48:52],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE India Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_india[1:47,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_india[48:52,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_india$weekly_aggregated_residuals[1:52])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_india[1:52,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "India Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,2)")
+
+
+
+
+plot(new_ts_covid_india$week[48:52],                              # Draw first time series
+     new_ts_covid_india$weekly_aggregated_residuals[48:52],
+     type = "l",
+     xlab = "Date",
+     ylab = "India Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_india$week[48:52],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE India Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+
+```{r}
+#Indonesia Example on aggregate weekly
+ts_covid_indonesia = ts(covid_indonesia$residuals,frequency = 7)
+ts_covid_indonesia_2 = ts(colSums(matrix(ts_covid_indonesia, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_indonesia$vaccination_policy), nrow=7))
+new_ts_covid_indonesia = data.frame(1:32,ts_covid_indonesia_2,vaccine_policy)
+names(new_ts_covid_indonesia) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_indonesia_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_indonesia[1:27,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_indonesia[28:32,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_indonesia$weekly_aggregated_residuals[1:32])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_indonesia[1:32,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Indonesia Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,0,2)")
+
+
+
+
+plot(new_ts_covid_indonesia$week[28:32],                              # Draw first time series
+     new_ts_covid_indonesia$weekly_aggregated_residuals[28:32],
+     type = "l",
+     xlab = "Date",
+     ylab = "Indonesia Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_indonesia$week[28:32],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE Indonesia Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_indonesia[1:27,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_indonesia[28:32,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_indonesia$weekly_aggregated_residuals[1:32])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_indonesia[1:32,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Indonesia Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,1)")
+
+
+
+plot(new_ts_covid_indonesia$week[28:32],                              # Draw first time series
+     new_ts_covid_indonesia$weekly_aggregated_residuals[28:32],
+     type = "l",
+     xlab = "Date",
+     ylab = "Indonesia Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_indonesia$week[28:32],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE Indonesia Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+
+
+```{r}
+#Italy Example on aggregate weekly
+ts_covid_italy = ts(covid_italy$residuals,frequency = 7)
+ts_covid_italy_2 = ts(colSums(matrix(ts_covid_italy, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_italy$vaccination_policy), nrow=7))
+new_ts_covid_italy = data.frame(1:57,ts_covid_italy_2,vaccine_policy)
+names(new_ts_covid_italy) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_italy_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_italy[1:52,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_italy[53:57,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_italy$weekly_aggregated_residuals[1:57])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_italy[1:57,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Italy Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,1,1)")
+
+
+plot(new_ts_covid_italy$week[53:57],                              # Draw first time series
+     new_ts_covid_italy$weekly_aggregated_residuals[53:57],
+     type = "l",
+     xlab = "Date",
+     ylab = "Italy Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_italy$week[53:57],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE Italy Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_italy[1:52,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_italy[53:57,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_italy$weekly_aggregated_residuals[1:57])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_italy[1:57,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Italy Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+
+
+plot(new_ts_covid_italy$week[53:57],                              # Draw first time series
+     new_ts_covid_italy$weekly_aggregated_residuals[53:57],
+     type = "l",
+     xlab = "Date",
+     ylab = "Italy Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_italy$week[53:57],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Italy Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Japan Example on aggregate weekly
+ts_covid_japan = ts(covid_japan$residuals,frequency = 7)
+ts_covid_japan_2 = ts(colSums(matrix(ts_covid_japan, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_japan$vaccination_policy), nrow=7))
+new_ts_covid_japan = data.frame(1:50,ts_covid_japan_2,vaccine_policy)
+names(new_ts_covid_japan) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_japan_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_japan[1:45,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_japan[46:50,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_japan$weekly_aggregated_residuals[1:50])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_japan[1:50,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Japan Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,1,1)")
+
+
+plot(new_ts_covid_japan$week[46:50],                              # Draw first time series
+     new_ts_covid_japan$weekly_aggregated_residuals[46:50],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_japan$week[46:50],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE Japan Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_japan[1:45,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_japan[46:50,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_japan$weekly_aggregated_residuals[1:50])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_japan[1:50,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Japan Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_japan$week[46:50],                              # Draw first time series
+     new_ts_covid_japan$weekly_aggregated_residuals[46:50],
+     type = "l",
+     xlab = "Date",
+     ylab = "Japan Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_japan$week[46:50],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+
+```{r}
+#Training MSE Japan Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Mexico Example on aggregate weekly
+ts_covid_mexico = ts(covid_mexico$residuals,frequency = 7)
+ts_covid_mexico_2 = ts(colSums(matrix(ts_covid_mexico, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_mexico$vaccination_policy), nrow=7))
+new_ts_covid_mexico = data.frame(1:58,ts_covid_mexico_2,vaccine_policy)
+names(new_ts_covid_mexico) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_mexico_2)
+```
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_mexico[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_mexico[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_mexico$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_mexico[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Mexico Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(1,0,0)")
+
+
+plot(new_ts_covid_mexico$week[54:58],                              # Draw first time series
+     new_ts_covid_mexico$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_mexico$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Mexico Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_mexico[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_mexico[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_mexico$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_mexico[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Mexico Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(1,0,0)")
+
+
+
+plot(new_ts_covid_mexico$week[54:58],                              # Draw first time series
+     new_ts_covid_mexico$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "Mexico Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_mexico$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Mexico Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Morocco Example on aggregate weekly
+ts_covid_morocco = ts(covid_morocco$residuals,frequency = 7)
+ts_covid_morocco_2 = ts(colSums(matrix(ts_covid_morocco, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_morocco$vaccination_policy), nrow=7))
+new_ts_covid_morocco = data.frame(1:49,ts_covid_morocco_2,vaccine_policy)
+names(new_ts_covid_morocco) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_morocco_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_morocco[1:44,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_morocco[45:49,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_morocco$weekly_aggregated_residuals[1:49])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_morocco[1:49,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Morocco Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(1,0,2)")
+
+
+
+plot(new_ts_covid_morocco$week[45:49],                              # Draw first time series
+     new_ts_covid_morocco$weekly_aggregated_residuals[45:49],
+     type = "l",
+     xlab = "Date",
+     ylab = "Morocco Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_morocco$week[45:49],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Morocco Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_morocco[1:44,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_morocco[45:49,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_morocco$weekly_aggregated_residuals[1:49])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_morocco[1:49,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Morocco Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(1,0,2)")
+
+
+plot(new_ts_covid_morocco$week[45:49],                              # Draw first time series
+     new_ts_covid_morocco$weekly_aggregated_residuals[45:49],
+     type = "l",
+     xlab = "Date",
+     ylab = "Morocco Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_morocco$week[45:49],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Morocco Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Portugal Example on aggregate weekly
+ts_covid_portugal = ts(covid_portugal$residuals,frequency = 7)
+ts_covid_portugal_2 = ts(colSums(matrix(ts_covid_portugal, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_portugal$vaccination_policy), nrow=7))
+new_ts_covid_portugal = data.frame(1:57,ts_covid_portugal_2,vaccine_policy)
+names(new_ts_covid_portugal) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_portugal_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_portugal[1:52,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_portugal[53:57,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_portugal$weekly_aggregated_residuals[1:57])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_portugal[1:57,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Portugal Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(0,1,1)")
+
+
+
+
+plot(new_ts_covid_portugal$week[53:57],                              # Draw first time series
+     new_ts_covid_portugal$weekly_aggregated_residuals[53:57],
+     type = "l",
+     xlab = "Date",
+     ylab = "Portugal Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_portugal$week[53:57],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Portugual Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_portugal[1:52,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_portugal[53:57,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_portugal$weekly_aggregated_residuals[1:57])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_portugal[1:57,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Portugal Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_portugal$week[53:57],                              # Draw first time series
+     new_ts_covid_portugal$weekly_aggregated_residuals[53:57],
+     type = "l",
+     xlab = "Date",
+     ylab = "Portugal Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_portugal$week[53:57],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Portugual Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+#Russia Example on aggregate weekly
+ts_covid_russia = ts(covid_russia$residuals,frequency = 7)
+ts_covid_russia_2 = ts(colSums(matrix(ts_covid_russia, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_russia$vaccination_policy), nrow=7))
+new_ts_covid_russia = data.frame(1:36,ts_covid_russia_2,vaccine_policy)
+names(new_ts_covid_russia) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_russia_2)
+```
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_russia[1:31,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_russia[32:36,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_portugal$weekly_aggregated_residuals[1:36])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_russia[1:36,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Russia Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(1,1,0)")
+
+
+
+plot(new_ts_covid_russia$week[32:36],                              # Draw first time series
+     new_ts_covid_russia$weekly_aggregated_residuals[32:36],
+     type = "l",
+     xlab = "Date",
+     ylab = "Russia Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_russia$week[32:36],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Russia Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_russia[1:31,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_russia[32:36,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_portugal$weekly_aggregated_residuals[1:36])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_russia[1:36,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Russia Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,1)")
+
+
+
+plot(new_ts_covid_russia$week[32:36],                              # Draw first time series
+     new_ts_covid_russia$weekly_aggregated_residuals[32:36],
+     type = "l",
+     xlab = "Date",
+     ylab = "Russia Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_russia$week[32:36],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Russia Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+
+```{r}
+#Saudi Example on aggregate weekly
+ts_covid_saudi = ts(covid_saudi$residuals,frequency = 7)
+ts_covid_saudi_2 = ts(colSums(matrix(ts_covid_saudi, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_saudi$vaccination_policy), nrow=7))
+new_ts_covid_saudi = data.frame(1:58,ts_covid_saudi_2,vaccine_policy)
+names(new_ts_covid_saudi) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_saudi_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_saudi[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_saudi[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_saudi$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_saudi[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Saudi Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(0,1,3)")
+
+
+
+plot(new_ts_covid_saudi$week[54:58],                              # Draw first time series
+     new_ts_covid_saudi$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "Saudi Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_saudi$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE Saudi Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_saudi[1:53,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_saudi[54:58,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_saudi$weekly_aggregated_residuals[1:58])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_saudi[1:58,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Saudi Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(0,0,1)")
+
+
+
+
+plot(new_ts_covid_saudi$week[54:58],                              # Draw first time series
+     new_ts_covid_saudi$weekly_aggregated_residuals[54:58],
+     type = "l",
+     xlab = "Date",
+     ylab = "Saudi Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_saudi$week[54:58],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+```{r}
+#Training MSE Saudi Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+
+```{r}
+#Uganda Example on aggregate weekly
+covid_uganda <- readRDS("data/covid_north_weekly.RData")
+ covid_uganda <-
+   covid_uganda %>% filter(location == "Uganda") %>%
+   mutate("week" = 1:43)
+ 
+ 
+```
+```{r}
+regression_model = lm(adjusted_weekly_cases_per_million~1, data = covid_uganda[1:38,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = covid_uganda[39:43,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),covid_uganda$adjusted_weekly_cases_per_million[1:43])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = covid_uganda[1:43,]) + 
+  geom_line(aes(x=week, y=adjusted_weekly_cases_per_million, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Uganda Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,0,0)")
+
+
+
+
+plot(covid_uganda$week[39:43],                              # Draw first time series
+     covid_uganda$adjusted_weekly_cases_per_million[39:43],
+     type = "l",
+     xlab = "Date",
+     ylab = "Uganda Prediction vs. Acutal: Null Model")
+lines(covid_uganda$week[39:43],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+```{r}
+#Training MSE South Africa Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+```{r}
+regression_model = lm(adjusted_weekly_cases_per_million~as.numeric(vaccination_policy), data = covid_uganda[1:38,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = covid_uganda[39:43,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),covid_uganda$adjusted_weekly_cases_per_million[1:43])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = covid_uganda[1:43,]) + 
+  geom_line(aes(x=week, y=adjusted_weekly_cases_per_million, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "Uganda Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+
+
+plot(covid_uganda$week[39:43],                              # Draw first time series
+     covid_uganda$adjusted_weekly_cases_per_million[39:43],
+     type = "l",
+     xlab = "Date",
+     ylab = "Uganda Prediction vs. Acutal: Null Model")
+lines(covid_uganda$week[39:43],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+
+```
+
+```{r}
+#Training MSE South Africa Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+
+```{r}
+#United Kingdom Example on aggregate weekly
+ts_covid_uk = ts(covid_uk$residuals,frequency = 7)
+ts_covid_uk_2 = ts(colSums(matrix(ts_covid_uk, nrow=7))) 
+
+vaccine_policy = colSums(matrix(as.numeric(covid_uk$vaccination_policy), nrow=7))
+new_ts_covid_uk = data.frame(1:60,ts_covid_uk_2,vaccine_policy)
+names(new_ts_covid_uk) = c("week","weekly_aggregated_residuals","vaccination_policy")
+
+plot.ts(ts_covid_uk_2)
+```
+```{r}
+regression_model = lm(weekly_aggregated_residuals~1, data = new_ts_covid_uk[1:55,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_uk[56:60,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_uk$weekly_aggregated_residuals[1:60])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_uk[1:60,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "UK Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Null Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_uk$week[56:60],                              # Draw first time series
+     new_ts_covid_uk$weekly_aggregated_residuals[56:60],
+     type = "l",
+     xlab = "Date",
+     ylab = "United Kingdom Prediction vs. Acutal: Null Model")
+lines(new_ts_covid_uk$week[56:60],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+
+```
+
+
+```{r}
+#Training MSE UK Null
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
+
+
+```{r}
+regression_model = lm(weekly_aggregated_residuals~vaccination_policy, data = new_ts_covid_uk[1:55,]) 
+summary(regression_model)
+anova(regression_model)
+
+error = residuals(regression_model)
+ts_error = ts(error)
+
+#ARIMA on error
+
+error_model = auto.arima(ts_error)
+fitted_error = fitted(error_model)
+summary(error_model)
+
+checkresiduals(error_model)
+
+#goodness of fit
+regression_prediction = predict(regression_model)
+
+final_prediction = regression_prediction + fitted_error
+
+regression_prediction = predict(regression_model, newdata = new_ts_covid_uk[56:60,])
+error_forecast =  predict(error_model, n.ahead = 5)$pred
+
+final_prediction_2 = regression_prediction + error_forecast
+
+
+#compare prediction and actual
+
+
+compare_table = data.frame(c(final_prediction,final_prediction_2),new_ts_covid_uk$weekly_aggregated_residuals[1:60])
+colnames(compare_table) = c("predict","actual")
+
+
+ggplot(data = new_ts_covid_uk[1:60,]) + 
+  geom_line(aes(x=week, y=weekly_aggregated_residuals, color = "black")) + 
+  geom_line(aes(x=week, y=compare_table$predict, color = "red"))+ 
+    labs(x = "Week",
+         y = "UK Prediction vs. Acutal")+
+  scale_color_manual(name = c("color"),values = c("black","red"),labels = c("Actual","Prediction"))+
+  ggtitle("Full Model, ARIMA(2,0,0)")
+
+
+
+plot(new_ts_covid_uk$week[56:60],                              # Draw first time series
+     new_ts_covid_uk$weekly_aggregated_residuals[56:60],
+     type = "l",
+     xlab = "Date",
+     ylab = "United Kingdom Prediction vs. Acutal: Full Model")
+lines(new_ts_covid_uk$week[56:60],                            # Draw second time series
+      final_prediction_2,
+      type = "l",
+      col = "red")
+legend(x = "topright",legend=c("actual", "prediction"),
+       col=c("black", "red"), lty=1, cex=0.5)
+```
+
+
+```{r}
+#Training MSE UK Full
+SSE_train = sum((final_prediction - compare_table$actual[1:length(final_prediction)])^2)
+MSE_train = SSE_train/length(final_prediction)
+MSE_train
+
+#Testing MSE
+SSE_test = sum((final_prediction_2 - compare_table$actual[length(final_prediction)+1:length(final_prediction_2)])^2)
+MSE_test = SSE_test/length(final_prediction_2)
+MSE_test
+```
