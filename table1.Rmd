@@ -11,8 +11,21 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-|                      |   Df|   Sum Sq|    Mean Sq| F value| Pr(>F)| % variance explained|
-|:---------------------|----:|--------:|----------:|-------:|------:|--------------------:|
-|new_tests_per_million |    1| 41369748| 41369747.7|  2295.3|      0|                 28.0|
-|continent             |    3|  7786113|  2595371.1|   144.0|      0|                  5.3|
-|Residuals             | 5482| 98803994|    18023.3|       -|      -|                 66.8|
+
+|Vaccination Policy Code| Explanation |   Detailed Explanation| 
+|:----------:|:--------------------|:----------------------------------------------------------|
+|0 | None|  No availability |
+|1             |One group| Availability for ONE of following: key workers/ clinically vulnerable groups / elderly groups
+|2             |Two group | Availability for TWO of following: key workers/ clinically vulnerable groups / elderly groups|
+|3 |All vulnerable groups|    Availability for ALL of following: key workers/ clinically vulnerable groups / elderly groups| 
+|4             |Vulnerable + some others| Availability for all three plus partial additional availability (select broad groups/ages)|
+|5             |Universal| Universal availability| 
+
+
+$$
+\text{weekly contrast:} \ Y'_t = (1-B^7)Y_t 
+$$ 
+
+$$
+\text{weekly aggregate:} \ Y^*_t = \sum_{i=1}^7Y_{t+i}
+$$ 

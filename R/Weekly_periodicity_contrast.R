@@ -4,7 +4,7 @@ if ( !require(dplyr) )    { install.packages("dplyr");    library(dplyr) }
 if ( !require(ggpubr ) )   { install.packages("ggpubr");    library(ggpubr) }
 if ( !require(grid) )    { install.packages("grid");    library(grid) }
 
-covid <- readRDS("data/covid_north_weekly.RData")
+covid <- readRDS("data/covid_north_contrast.RData")
 
 
 covid_list <- 
@@ -12,7 +12,7 @@ covid_list <-
 
 arima_fit <- 
   covid_list %>% 
-  lapply(function(x) auto.arima(x$adjusted_weekly_cases_per_million))
+  lapply(function(x) auto.arima(x$ctrst_adjusted_new_cases_per_million))
 
 arima_model <- 
   arima_fit %>% 
@@ -34,7 +34,7 @@ ariam_acf <-
     
   })
 
-figureS2 <- ggarrange(plotlist = ariam_acf, nrow = 4, ncol = 4 )
+figureS1 <- ggarrange(plotlist = ariam_acf, nrow = 4, ncol = 4 )
 annotate_figure( figure2, left = textGrob("Residual ACF", rot = 90, vjust = 1, gp = gpar(cex = 1.3)),
                  bottom = textGrob("Lag", gp = gpar(cex = 1.3)) )
 

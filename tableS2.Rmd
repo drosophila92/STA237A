@@ -1,0 +1,20 @@
+---
+title: "TableS2"
+author: "Yige Luo"
+date: "12/2/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+|                         |  Df|      Sum Sq|  Mean Sq| F value| Pr(>F)| % variance explained|
+|:------------------------|---:|-----------:|--------:|-------:|------:|--------------------:|
+|Weekly tests per million |   1|    309985.1| 309985.1|     0.4|    0.5|                  0.1|
+|continent                |   3|    201621.0|  67207.0|     0.1|    1.0|                  0.0|
+|Residuals                | 797| 611637080.5| 767424.2|       -|      -|                 99.9|
+
+
